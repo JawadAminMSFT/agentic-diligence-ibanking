@@ -437,16 +437,33 @@ server.tool(
 // Tool 2: generate_deck (.pptx via pptxgenjs)
 // ---------------------------------------------------------------------------
 
+// ── Color constants ─────────────────────────────────────────────────────────
+const C = {
+  DARK: "1e293b",
+  MID: "334155",
+  LIGHT: "64748b",
+  MUTED: "94a3b8",
+  ACCENT: "2563eb",
+  WHITE: "ffffff",
+  BG: "f8fafc",
+  BORDER: "e2e8f0",
+  RED: "dc2626",
+  GREEN: "16a34a",
+  AMBER: "d97706",
+  RED_BG: "fef2f2",
+  GREEN_BG: "f0fdf4",
+  AMBER_BG: "fffbeb",
+};
+
 // ── Slide-type detection ────────────────────────────────────────────────────
-type SlideType = "executive" | "financial" | "table" | "comparison" | "numbered" | "standard";
+type SlideType = "executive" | "financial" | "issues" | "recommendation" | "standard";
 
 function detectSlideType(title: string): SlideType {
   const t = title.toLowerCase();
-  if (/executive|summary overview/i.test(t) && /summary|overview/i.test(t)) return "executive";
-  if (/bull.*bear|bear.*bull|\bvs\b/i.test(t)) return "comparison";
-  if (/competitive|competitor|risk\s*matrix|acquisition|m\s*&\s*a|valuation comp|comps\b/i.test(t)) return "table";
-  if (/financial|revenue|margin|balance|valuation|metric|retention|cohort|unit econom|ebitda|cash\s*flow/i.test(t)) return "financial";
-  if (/question|next\s*step|recommendation|action\s*item/i.test(t)) return "numbered";
+  if (/executive|summary/i.test(t) && /summary|overview/i.test(t)) return "executive";
+  if (/financial|revenue|margin|retention|cohort|unit econom|ebitda|cash\s*flow|valuation|metric/i.test(t)) return "financial";
+  if (/issue|risk|concern|threat/i.test(t)) return "issues";
+  if (/recommend|next\s*step|action\s*item|question/i.test(t)) return "recommendation";
   return "standard";
 }
 
@@ -467,45 +484,51 @@ function extractMetrics(lines: string[]): Array<{ label: string; value: string }
   return metrics;
 }
 
-function parseTableData(lines: string[]): { headers: string[]; rows: string[][] } | null {
-  const pipeLines = lines.filter(l => l.includes("|"));
-  if (pipeLines.length >= 2) {
-    const parse = (l: string) => l.split("|").map(c => c.trim()).filter(c => c.length > 0 && !/^[-:]+$/.test(c));
-    const headers = parse(pipeLines[0]);
-    if (headers.length === 0) return null;
-    const rows = pipeLines.slice(1)
-      .map(parse)
-      .filter(r => r.length > 0 && r.length <= headers.length + 1);
-    if (rows.length === 0) return null;
-    return { headers, rows };
-  }
-  // Fallback: "Name - Detail" patterns (at least 3 lines with a dash separator)
-  const dashLines = lines.filter(l => /\s[-–—]\s/.test(l));
-  if (dashLines.length >= 3) {
-    const headers = ["Item", "Details"];
-    const rows = dashLines.map(l => {
-      const parts = l.split(/\s[-–—]\s/);
-      return [parts[0].trim(), parts.slice(1).join(" – ").trim()];
+// ── Card-based bullet layout (core visual pattern) ──────────────────────────
+function renderBulletCards(slide: any, bullets: string[], startY: number) {
+  const colW = 4.4;
+  const cardH = 0.7;
+  const gap = 0.15;
+  const leftX = 0.3;
+  const rightX = 5.2;
+
+  for (let i = 0; i < bullets.length && i < 10; i++) {
+    const col = i % 2;
+    const row = Math.floor(i / 2);
+    const x = col === 0 ? leftX : rightX;
+    const y = startY + row * (cardH + gap);
+
+    // Card background
+    slide.addShape("roundRect" as any, {
+      x, y, w: colW, h: cardH,
+      fill: { color: C.BG },
+      line: { color: C.BORDER, width: 0.5 },
+      rectRadius: 0.04,
     });
-    return { headers, rows };
+    // Bullet dot
+    slide.addShape("ellipse" as any, {
+      x: x + 0.15, y: y + cardH / 2 - 0.05, w: 0.1, h: 0.1,
+      fill: { color: C.ACCENT },
+    });
+    // Bullet text
+    slide.addText(bullets[i], {
+      x: x + 0.35, y: y + 0.08, w: colW - 0.5, h: cardH - 0.16,
+      fontSize: 9, color: C.MID, fontFace: "Arial",
+      valign: "middle", shrinkText: true,
+    });
   }
-  return null;
 }
 
-function splitTwoColumns(lines: string[], splitKeyword: string): [string[], string[]] {
-  const kwIdx = lines.findIndex(l => new RegExp(splitKeyword, "i").test(l));
-  if (kwIdx > 0) {
-    return [lines.slice(0, kwIdx), lines.slice(kwIdx + 1)];
-  }
-  const mid = Math.ceil(lines.length / 2);
-  return [lines.slice(0, mid), lines.slice(mid)];
-}
-
-function severityColor(text: string): string {
-  if (/\bhigh\b/i.test(text)) return "ef4444";
-  if (/\b(moderate|medium)\b/i.test(text)) return "f59e0b";
-  if (/\blow\b/i.test(text)) return "22c55e";
-  return "334155";
+// ── Content slide header (dark bar + title + slide number) ──────────────────
+function addContentSlideHeader(slide: any, slideTitle: string, slideNum: number) {
+  slide.addText(slideTitle, {
+    x: 0.3, y: 0.08, w: 8, h: 0.35,
+    fontSize: 14, color: C.WHITE, fontFace: "Arial", bold: true,
+  });
+  slide.addText(String(slideNum), {
+    x: 9.2, y: 0.08, w: 0.5, h: 0.35,
+    fontSize: 9, color: C.MUTED, fontFace: "Arial", align: "right",
+  });
 }
 
 // ── Main tool ───────────────────────────────────────────────────────────────
@@ -517,7 +540,8 @@ server.tool(
   },
   async ({ title, slides }) => {
     const pptx = new PptxGenJS();
-    pptx.layout = "LAYOUT_WIDE";
+    pptx.defineLayout({ name: "CUSTOM_16x9", width: 10, height: 5.625 });
+    pptx.layout = "CUSTOM_16x9";
     pptx.title = title;
     pptx.author = "Buy-side Diligence Copilot";
     pptx.company = "Diligence Agent Harness";
@@ -528,77 +552,38 @@ server.tool(
       day: "numeric",
     });
 
-    // Color palette
-    const DARK = "1e293b";
-    const MID = "334155";
-    const LIGHT = "64748b";
-    const ACCENT = "2563eb";
-    const WHITE = "ffffff";
-    const SLATE_50 = "f8fafc";
-    const SLATE_200 = "e2e8f0";
-    const RED = "ef4444";
-    const GREEN = "22c55e";
-
     // ── Slide master (all content slides) ─────────────────────────────────
     pptx.defineSlideMaster({
-      title: "IC_MASTER",
-      background: { fill: WHITE },
+      title: "MASTER",
+      background: { fill: C.WHITE },
       objects: [
-        { rect: { x: 0, y: 0, w: "100%", h: 0.03, fill: { color: ACCENT } } },
-        { rect: { x: 0, y: 7.0, w: "100%", h: 0.5, fill: { color: DARK } } },
-        { text: { text: "CONFIDENTIAL", options: { x: 0.4, y: 7.08, w: 2, h: 0.3, fontSize: 7, color: RED, fontFace: "Arial", bold: true } } },
-        { text: { text: "Buy-Side Due Diligence", options: { x: 3.5, y: 7.08, w: 6, h: 0.3, fontSize: 7, color: "94a3b8", fontFace: "Arial", align: "center" } } },
+        { rect: { x: 0, y: 0, w: "100%", h: 0.5, fill: { color: C.DARK } } },
+        { rect: { x: 0, y: 5.35, w: "100%", h: 0.01, fill: { color: C.BORDER } } },
+        { text: { text: "CONFIDENTIAL", options: { x: 0.3, y: 5.38, w: 1.5, h: 0.2, fontSize: 6, color: C.RED, fontFace: "Arial", bold: true } } },
       ],
     });
 
-    // ── Helpers to add common elements ─────────────────────────────────────
-    function addSlideTitle(slide: PptxGenJS.Slide, text: string) {
-      slide.addText(text, {
-        x: 0.4, y: 0.2, w: 12, h: 0.55,
-        fontSize: 20, color: DARK, fontFace: "Arial", bold: true,
-      });
-      slide.addShape("rect" as PptxGenJS.ShapeType, {
-        x: 0.4, y: 0.78, w: 1.5, h: 0.03, fill: { color: ACCENT },
-      });
-    }
-
-    function addSlideNumber(slide: PptxGenJS.Slide, num: number) {
-      slide.addText(String(num), {
-        x: 12.2, y: 7.08, w: 0.8, h: 0.3,
-        fontSize: 7, color: "94a3b8", fontFace: "Arial", align: "right",
-      });
-    }
-
     // =====================================================================
-    //  1. TITLE SLIDE  (dark, no master)
+    //  1. TITLE SLIDE (dark, no master)
     // =====================================================================
     const titleSlide = pptx.addSlide();
-    titleSlide.background = { fill: DARK };
-    titleSlide.addShape("rect" as PptxGenJS.ShapeType, {
-      x: 1.5, y: 1.8, w: 10.3, h: 0.04, fill: { color: ACCENT },
-    });
+    titleSlide.background = { fill: C.DARK };
     titleSlide.addText(title, {
-      x: 1, y: 2.0, w: 11.33, h: 1.2,
-      fontSize: 32, color: WHITE, fontFace: "Arial", bold: true, align: "center",
+      x: 0.8, y: 1.2, w: 8.4, h: 1.0,
+      fontSize: 26, color: C.WHITE, fontFace: "Arial", bold: true,
     });
+    titleSlide.addShape("rect" as any, { x: 0.8, y: 2.3, w: 2, h: 0.03, fill: { color: C.ACCENT } });
     titleSlide.addText("Investment Committee Presentation", {
-      x: 1, y: 3.3, w: 11.33, h: 0.6,
-      fontSize: 16, color: LIGHT, fontFace: "Arial", align: "center",
+      x: 0.8, y: 2.5, w: 8.4, h: 0.4,
+      fontSize: 13, color: C.MUTED, fontFace: "Arial",
     });
-    titleSlide.addShape("rect" as PptxGenJS.ShapeType, {
-      x: 5.2, y: 4.2, w: 3, h: 0.02, fill: { color: LIGHT },
+    titleSlide.addText(`Prepared by  Buy-side Diligence Copilot\n${now}`, {
+      x: 0.8, y: 3.2, w: 8.4, h: 0.6,
+      fontSize: 9, color: C.LIGHT, fontFace: "Arial",
     });
-    titleSlide.addText([
-      { text: "Prepared by  ", options: { fontSize: 10, color: LIGHT } },
-      { text: "Diligence Agent Harness", options: { fontSize: 10, color: WHITE, bold: true } },
-    ], { x: 1, y: 4.5, w: 11.33, h: 0.4, fontFace: "Arial", align: "center" });
-    titleSlide.addText(now, {
-      x: 1, y: 5.0, w: 11.33, h: 0.4,
-      fontSize: 11, color: LIGHT, fontFace: "Arial", align: "center",
-    });
-    titleSlide.addText("CONFIDENTIAL — FOR INTERNAL USE ONLY", {
-      x: 1, y: 6.5, w: 11.33, h: 0.3,
-      fontSize: 9, color: RED, fontFace: "Arial", align: "center", bold: true,
+    titleSlide.addText("CONFIDENTIAL", {
+      x: 0.8, y: 4.8, w: 8.4, h: 0.3,
+      fontSize: 8, color: C.RED, fontFace: "Arial", bold: true,
     });
 
     // =====================================================================
@@ -607,17 +592,14 @@ server.tool(
     for (let i = 0; i < slides.length; i++) {
       const sd = slides[i];
       const slideType = detectSlideType(sd.title);
-      const slide = pptx.addSlide({ masterName: "IC_MASTER" });
-      const contentLines = sd.content.split("\n").map(l => l.trim()).filter(l => l.length > 0 && !/^[-|:]+$/.test(l));
+      const slide = pptx.addSlide({ masterName: "MASTER" });
       const bullets = parseBullets(sd.content);
-      const slideNum = i + 2; // title slide is 1
+      const slideNum = i + 2;
 
-      addSlideTitle(slide, sd.title);
-      addSlideNumber(slide, slideNum);
+      addContentSlideHeader(slide, sd.title, slideNum);
 
       // ── EXECUTIVE SUMMARY ─────────────────────────────────────────────
       if (slideType === "executive") {
-        // Partition bullets: positive → highlights, risk/negative → risks
         const riskKeywords = /risk|concern|challeng|threat|weak|declin|negativ|issue|loss|churn|uncertain|disadvantage|bear/i;
         const highlights: string[] = [];
         const risks: string[] = [];
@@ -628,191 +610,177 @@ server.tool(
           if (inRiskSection || riskKeywords.test(b)) { risks.push(b); } else { highlights.push(b); }
         }
         if (risks.length === 0) {
-          const mid = Math.ceil(bullets.length / 2);
+          const mid = Math.ceil(bullets.length * 0.6);
           highlights.length = 0;
           highlights.push(...bullets.slice(0, mid));
           risks.push(...bullets.slice(mid));
         }
 
-        // Left: KEY HIGHLIGHTS
-        slide.addShape("rect" as PptxGenJS.ShapeType, { x: 0.4, y: 1.05, w: 5.8, h: 0.35, fill: { color: GREEN } });
-        slide.addText("KEY HIGHLIGHTS", { x: 0.4, y: 1.05, w: 5.8, h: 0.35, fontSize: 10, color: WHITE, fontFace: "Arial", bold: true, align: "center" });
-        if (highlights.length > 0) {
-          slide.addText(
-            highlights.map(b => ({ text: b, options: { bullet: { code: "2022" }, breakLine: true } as PptxGenJS.TextPropsOptions })),
-            { x: 0.5, y: 1.55, w: 5.6, h: 4.5, fontSize: 11, color: MID, fontFace: "Arial", lineSpacingMultiple: 1.4, valign: "top" },
-          );
+        // LEFT column: KEY HIGHLIGHTS
+        const leftColX = 0.3;
+        const leftColW = 4.4;
+        slide.addShape("rect" as any, { x: leftColX, y: 0.65, w: leftColW, h: 0.3, fill: { color: C.GREEN } });
+        slide.addText("KEY HIGHLIGHTS", { x: leftColX, y: 0.65, w: leftColW, h: 0.3, fontSize: 9, color: C.WHITE, fontFace: "Arial", bold: true, align: "center" });
+        const hlCardH = 0.55;
+        const hlGap = 0.1;
+        for (let hi = 0; hi < highlights.length && hi < 5; hi++) {
+          const hy = 1.05 + hi * (hlCardH + hlGap);
+          slide.addShape("roundRect" as any, {
+            x: leftColX, y: hy, w: leftColW, h: hlCardH,
+            fill: { color: C.GREEN_BG }, line: { color: C.GREEN, width: 0.5 }, rectRadius: 0.04,
+          });
+          slide.addShape("ellipse" as any, { x: leftColX + 0.12, y: hy + hlCardH / 2 - 0.04, w: 0.08, h: 0.08, fill: { color: C.GREEN } });
+          slide.addText(highlights[hi], {
+            x: leftColX + 0.28, y: hy + 0.05, w: leftColW - 0.4, h: hlCardH - 0.1,
+            fontSize: 8, color: C.MID, fontFace: "Arial", valign: "middle", shrinkText: true,
+          });
         }
 
         // Vertical divider
-        slide.addShape("rect" as PptxGenJS.ShapeType, { x: 6.55, y: 1.05, w: 0.015, h: 5.0, fill: { color: SLATE_200 } });
+        slide.addShape("rect" as any, { x: 4.95, y: 0.65, w: 0.01, h: 4.0, fill: { color: C.BORDER } });
 
-        // Right: KEY RISKS
-        slide.addShape("rect" as PptxGenJS.ShapeType, { x: 6.9, y: 1.05, w: 5.8, h: 0.35, fill: { color: RED } });
-        slide.addText("KEY RISKS", { x: 6.9, y: 1.05, w: 5.8, h: 0.35, fontSize: 10, color: WHITE, fontFace: "Arial", bold: true, align: "center" });
-        if (risks.length > 0) {
-          slide.addText(
-            risks.map(b => ({ text: b, options: { bullet: { code: "2022" }, breakLine: true } as PptxGenJS.TextPropsOptions })),
-            { x: 7.0, y: 1.55, w: 5.6, h: 4.5, fontSize: 11, color: MID, fontFace: "Arial", lineSpacingMultiple: 1.4, valign: "top" },
-          );
+        // RIGHT column: KEY RISKS
+        const rightColX = 5.2;
+        const rightColW = 4.4;
+        slide.addShape("rect" as any, { x: rightColX, y: 0.65, w: rightColW, h: 0.3, fill: { color: C.RED } });
+        slide.addText("KEY RISKS", { x: rightColX, y: 0.65, w: rightColW, h: 0.3, fontSize: 9, color: C.WHITE, fontFace: "Arial", bold: true, align: "center" });
+        for (let ri = 0; ri < risks.length && ri < 5; ri++) {
+          const ry = 1.05 + ri * (hlCardH + hlGap);
+          slide.addShape("roundRect" as any, {
+            x: rightColX, y: ry, w: rightColW, h: hlCardH,
+            fill: { color: C.RED_BG }, line: { color: C.RED, width: 0.5 }, rectRadius: 0.04,
+          });
+          slide.addShape("ellipse" as any, { x: rightColX + 0.12, y: ry + hlCardH / 2 - 0.04, w: 0.08, h: 0.08, fill: { color: C.RED } });
+          slide.addText(risks[ri], {
+            x: rightColX + 0.28, y: ry + 0.05, w: rightColW - 0.4, h: hlCardH - 0.1,
+            fontSize: 8, color: C.MID, fontFace: "Arial", valign: "middle", shrinkText: true,
+          });
         }
 
         // Bottom: OVERALL ASSESSMENT bar
         const assessmentLine = bullets.find(b => /overall|verdict|recommendation|assessment/i.test(b));
         const assessmentText = assessmentLine ?? "See detailed analysis in subsequent slides.";
-        slide.addShape("rect" as PptxGenJS.ShapeType, { x: 0.4, y: 6.15, w: 12.5, h: 0.6, fill: { color: SLATE_50 }, line: { color: SLATE_200, width: 0.5 } });
+        slide.addShape("roundRect" as any, {
+          x: 0.3, y: 4.7, w: 9.3, h: 0.5,
+          fill: { color: C.BG }, line: { color: C.BORDER, width: 0.5 }, rectRadius: 0.04,
+        });
         slide.addText([
-          { text: "OVERALL ASSESSMENT:  ", options: { bold: true, fontSize: 9, color: ACCENT } },
-          { text: assessmentText, options: { fontSize: 9, color: MID } },
-        ], { x: 0.6, y: 6.2, w: 12.1, h: 0.5, fontFace: "Arial", valign: "middle" });
+          { text: "OVERALL ASSESSMENT:  ", options: { bold: true, fontSize: 8, color: C.ACCENT } },
+          { text: assessmentText, options: { fontSize: 8, color: C.MID } },
+        ], { x: 0.5, y: 4.75, w: 8.9, h: 0.4, fontFace: "Arial", valign: "middle" });
 
       // ── FINANCIAL / METRICS ───────────────────────────────────────────
       } else if (slideType === "financial") {
         const metrics = extractMetrics(bullets);
         const detailBullets = bullets.filter(b => !b.match(/^[^:]{2,40}:\s*.{1,35}$/));
 
+        // KPI cards row
         if (metrics.length >= 2) {
-          const display = metrics.slice(0, 4);
-          const boxW = 2.8;
-          const gap = 0.3;
-          const totalW = display.length * boxW + (display.length - 1) * gap;
-          const startX = (13.33 - totalW) / 2;
+          const display = metrics.slice(0, 3);
+          const kpiW = 2.8;
+          const kpiGap = 0.3;
+          const totalW = display.length * kpiW + (display.length - 1) * kpiGap;
+          const kpiStartX = (10 - totalW) / 2;
 
           display.forEach((m, idx) => {
-            const bx = startX + idx * (boxW + gap);
-            slide.addShape("roundRect" as PptxGenJS.ShapeType, {
-              x: bx, y: 0.9, w: boxW, h: 1.2,
-              fill: { color: SLATE_50 }, line: { color: SLATE_200, width: 1 }, rectRadius: 0.06,
+            const bx = kpiStartX + idx * (kpiW + kpiGap);
+            slide.addShape("roundRect" as any, {
+              x: bx, y: 0.65, w: kpiW, h: 0.9,
+              fill: { color: C.BG }, line: { color: C.BORDER, width: 0.5 }, rectRadius: 0.06,
             });
             slide.addText(m.label, {
-              x: bx + 0.15, y: 0.95, w: boxW - 0.3, h: 0.3,
-              fontSize: 9, color: LIGHT, fontFace: "Arial",
+              x: bx + 0.15, y: 0.7, w: kpiW - 0.3, h: 0.25,
+              fontSize: 8, color: C.MUTED, fontFace: "Arial",
             });
             slide.addText(m.value, {
-              x: bx + 0.15, y: 1.25, w: boxW - 0.3, h: 0.6,
-              fontSize: 24, color: DARK, fontFace: "Arial", bold: true,
+              x: bx + 0.15, y: 0.95, w: kpiW - 0.3, h: 0.5,
+              fontSize: 20, color: C.DARK, fontFace: "Arial", bold: true,
             });
           });
         }
 
+        // Remaining bullets as cards
         if (detailBullets.length > 0) {
-          const bulletY = metrics.length >= 2 ? 2.4 : 1.1;
-          slide.addText(
-            detailBullets.map(b => ({ text: b, options: { bullet: { code: "2022" }, breakLine: true } as PptxGenJS.TextPropsOptions })),
-            { x: 0.5, y: bulletY, w: 12.3, h: 6.5 - bulletY, fontSize: 11, color: MID, fontFace: "Arial", lineSpacingMultiple: 1.4, valign: "top" },
-          );
+          const bulletY = metrics.length >= 2 ? 1.75 : 0.65;
+          renderBulletCards(slide, detailBullets, bulletY);
         }
 
-      // ── TABLE SLIDES ──────────────────────────────────────────────────
-      } else if (slideType === "table") {
-        const tableData = parseTableData(contentLines);
-        if (tableData) {
-          const headerRow: PptxGenJS.TableRow = tableData.headers.map(h => ({
-            text: h,
-            options: { bold: true, fill: { color: DARK }, color: WHITE, fontSize: 9, fontFace: "Arial" as const },
-          }));
-          const dataRows: PptxGenJS.TableRow[] = tableData.rows.map((r, rIdx) => {
-            const rowFill = rIdx % 2 === 0 ? WHITE : SLATE_50;
-            return r.map(cell => {
-              const cellColor = severityColor(cell);
-              return {
-                text: cell,
-                options: {
-                  fill: { color: rowFill },
-                  fontSize: 9,
-                  fontFace: "Arial" as const,
-                  color: cellColor,
-                  bold: cellColor !== MID,
-                },
-              };
-            });
+      // ── ISSUES / RISK SLIDES ──────────────────────────────────────────
+      } else if (slideType === "issues") {
+        const cardH = 0.65;
+        const gap = 0.12;
+        const cardW = 9.0;
+        const cardX = 0.3;
+
+        for (let bi = 0; bi < bullets.length && bi < 6; bi++) {
+          const y = 0.65 + bi * (cardH + gap);
+          const text = bullets[bi];
+
+          // Determine severity
+          let sevColor = C.AMBER;
+          let sevBg = C.AMBER_BG;
+          let sevLabel = "MEDIUM";
+          if (/\bhigh\b/i.test(text)) { sevColor = C.RED; sevBg = C.RED_BG; sevLabel = "HIGH"; }
+          else if (/\blow\b/i.test(text)) { sevColor = C.GREEN; sevBg = C.GREEN_BG; sevLabel = "LOW"; }
+
+          // Card background
+          slide.addShape("roundRect" as any, {
+            x: cardX, y, w: cardW, h: cardH,
+            fill: { color: sevBg }, line: { color: C.BORDER, width: 0.5 }, rectRadius: 0.04,
           });
-          // Normalise column count
-          const colCount = tableData.headers.length;
-          const normRows = dataRows.map(r => {
-            while (r.length < colCount) r.push({ text: "", options: { fill: { color: WHITE }, fontSize: 9, fontFace: "Arial" as const, color: MID, bold: false } });
-            return r.slice(0, colCount);
+          // Severity left bar
+          slide.addShape("rect" as any, {
+            x: cardX, y, w: 0.06, h: cardH,
+            fill: { color: sevColor },
           });
-          const colW = Array(colCount).fill(12.5 / colCount) as number[];
-          slide.addTable([headerRow, ...normRows], {
-            x: 0.4, y: 1.2, w: 12.5,
-            border: { type: "solid", color: SLATE_200, pt: 0.5 },
-            colW,
-            rowH: [0.4, ...Array(normRows.length).fill(0.35) as number[]],
-            autoPage: true,
-            autoPageRepeatHeader: true,
+          // Severity badge
+          slide.addShape("roundRect" as any, {
+            x: cardX + 0.2, y: y + 0.08, w: 0.6, h: 0.2,
+            fill: { color: sevColor }, rectRadius: 0.04,
           });
-        } else {
-          // Fallback to bullet rendering if no table structure found
-          slide.addText(
-            bullets.map(b => ({ text: b, options: { bullet: { code: "2022" }, breakLine: true } as PptxGenJS.TextPropsOptions })),
-            { x: 0.5, y: 1.1, w: 12.3, h: 5.5, fontSize: 12, color: MID, fontFace: "Arial", lineSpacingMultiple: 1.4, valign: "top" },
-          );
+          slide.addText(sevLabel, {
+            x: cardX + 0.2, y: y + 0.08, w: 0.6, h: 0.2,
+            fontSize: 6, color: C.WHITE, fontFace: "Arial", bold: true, align: "center", valign: "middle",
+          });
+          // Bullet text
+          slide.addText(text, {
+            x: cardX + 0.95, y: y + 0.05, w: cardW - 1.1, h: cardH - 0.1,
+            fontSize: 9, color: C.MID, fontFace: "Arial", valign: "middle", shrinkText: true,
+          });
         }
 
-      // ── TWO-COLUMN COMPARISON (Bull vs Bear) ──────────────────────────
-      } else if (slideType === "comparison") {
-        const [leftBullets, rightBullets] = splitTwoColumns(bullets, "bear");
-        const leftLabel = /bull/i.test(sd.title) ? "BULL CASE" : "STRENGTHS";
-        const rightLabel = /bear/i.test(sd.title) ? "BEAR CASE" : "WEAKNESSES";
-
-        // Left column
-        slide.addShape("rect" as PptxGenJS.ShapeType, { x: 0.4, y: 1.05, w: 5.8, h: 0.35, fill: { color: GREEN } });
-        slide.addText(leftLabel, { x: 0.4, y: 1.05, w: 5.8, h: 0.35, fontSize: 10, color: WHITE, fontFace: "Arial", bold: true, align: "center" });
-        if (leftBullets.length > 0) {
-          slide.addText(
-            leftBullets.map(b => ({ text: b, options: { bullet: { code: "2022" }, breakLine: true } as PptxGenJS.TextPropsOptions })),
-            { x: 0.5, y: 1.55, w: 5.6, h: 5.0, fontSize: 11, color: MID, fontFace: "Arial", lineSpacingMultiple: 1.4, valign: "top" },
-          );
-        }
-
-        // Vertical divider
-        slide.addShape("rect" as PptxGenJS.ShapeType, { x: 6.55, y: 1.05, w: 0.015, h: 5.5, fill: { color: SLATE_200 } });
-
-        // Right column
-        slide.addShape("rect" as PptxGenJS.ShapeType, { x: 6.9, y: 1.05, w: 5.8, h: 0.35, fill: { color: RED } });
-        slide.addText(rightLabel, { x: 6.9, y: 1.05, w: 5.8, h: 0.35, fontSize: 10, color: WHITE, fontFace: "Arial", bold: true, align: "center" });
-        if (rightBullets.length > 0) {
-          slide.addText(
-            rightBullets.map(b => ({ text: b, options: { bullet: { code: "2022" }, breakLine: true } as PptxGenJS.TextPropsOptions })),
-            { x: 7.0, y: 1.55, w: 5.6, h: 5.0, fontSize: 11, color: MID, fontFace: "Arial", lineSpacingMultiple: 1.4, valign: "top" },
-          );
-        }
-
-      // ── NUMBERED LIST (Questions / Next Steps / Recommendations) ──────
-      } else if (slideType === "numbered") {
+      // ── RECOMMENDATION / NEXT STEPS ───────────────────────────────────
+      } else if (slideType === "recommendation") {
         const items = bullets.filter(b => !/^(key\s*)?question|next\s*step|recommendation/i.test(b) || b.length > 40);
-        items.slice(0, 8).forEach((item, idx) => {
-          const yPos = 1.1 + idx * 0.7;
-          // Number circle
-          slide.addShape("ellipse" as PptxGenJS.ShapeType, {
-            x: 0.4, y: yPos, w: 0.4, h: 0.4, fill: { color: ACCENT },
+        const cardH = 0.65;
+        const gap = 0.12;
+
+        for (let ni = 0; ni < items.length && ni < 6; ni++) {
+          const y = 0.65 + ni * (cardH + gap);
+
+          // Numbered circle
+          slide.addShape("ellipse" as any, {
+            x: 0.3, y: y + 0.1, w: 0.4, h: 0.4,
+            fill: { color: C.ACCENT },
           });
-          slide.addText(String(idx + 1), {
-            x: 0.4, y: yPos, w: 0.4, h: 0.4,
-            fontSize: 14, color: WHITE, fontFace: "Arial", bold: true, align: "center", valign: "middle",
+          slide.addText(String(ni + 1), {
+            x: 0.3, y: y + 0.1, w: 0.4, h: 0.4,
+            fontSize: 13, color: C.WHITE, fontFace: "Arial", bold: true, align: "center", valign: "middle",
           });
           // Card background
-          slide.addShape("roundRect" as PptxGenJS.ShapeType, {
-            x: 1.0, y: yPos, w: 11.5, h: 0.55,
-            fill: { color: SLATE_50 }, line: { color: SLATE_200, width: 0.5 }, rectRadius: 0.04,
+          slide.addShape("roundRect" as any, {
+            x: 0.85, y, w: 8.75, h: cardH,
+            fill: { color: C.BG }, line: { color: C.BORDER, width: 0.5 }, rectRadius: 0.04,
           });
-          slide.addText(item, {
-            x: 1.15, y: yPos + 0.05, w: 11.2, h: 0.45,
-            fontSize: 12, color: MID, fontFace: "Arial", valign: "middle",
+          slide.addText(items[ni], {
+            x: 1.0, y: y + 0.05, w: 8.45, h: cardH - 0.1,
+            fontSize: 9, color: C.MID, fontFace: "Arial", valign: "middle", shrinkText: true,
           });
-        });
+        }
 
-      // ── STANDARD CONTENT (default) ────────────────────────────────────
+      // ── STANDARD CONTENT (default — two-column cards) ─────────────────
       } else {
-        slide.addText(
-          bullets.map(b => ({ text: b, options: { bullet: { code: "2022" }, breakLine: true } as PptxGenJS.TextPropsOptions })),
-          {
-            x: 0.5, y: 1.1, w: 12.3, h: 5.5,
-            fontSize: 12, color: MID, fontFace: "Arial",
-            lineSpacingMultiple: 1.4, valign: "top",
-          },
-        );
+        renderBulletCards(slide, bullets, 0.65);
       }
     }
 
@@ -820,21 +788,15 @@ server.tool(
     //  END SLIDE
     // =====================================================================
     const endSlide = pptx.addSlide();
-    endSlide.background = { fill: DARK };
-    endSlide.addShape("rect" as PptxGenJS.ShapeType, {
-      x: 4.2, y: 2.8, w: 5, h: 0.03, fill: { color: ACCENT },
-    });
-    endSlide.addText("Thank You", {
-      x: 1, y: 2.9, w: 11.33, h: 0.8,
-      fontSize: 28, color: WHITE, fontFace: "Arial", bold: true, align: "center",
-    });
+    endSlide.background = { fill: C.DARK };
+    endSlide.addShape("rect" as any, { x: 3.5, y: 1.8, w: 3, h: 0.03, fill: { color: C.ACCENT } });
     endSlide.addText("Questions & Discussion", {
-      x: 1, y: 3.8, w: 11.33, h: 0.5,
-      fontSize: 14, color: LIGHT, fontFace: "Arial", align: "center",
+      x: 1, y: 2.0, w: 8, h: 0.6,
+      fontSize: 22, color: C.WHITE, fontFace: "Arial", bold: true, align: "center",
     });
-    endSlide.addText("CONFIDENTIAL — FOR INTERNAL USE ONLY", {
-      x: 1, y: 6.5, w: 11.33, h: 0.3,
-      fontSize: 9, color: RED, fontFace: "Arial", align: "center", bold: true,
+    endSlide.addText("CONFIDENTIAL", {
+      x: 1, y: 4.5, w: 8, h: 0.3,
+      fontSize: 8, color: C.RED, fontFace: "Arial", align: "center",
     });
 
     // Write .pptx file

@@ -35,23 +35,23 @@ export default function DashboardModal({ runId, onClose }: DashboardModalProps) 
   }, [handleKeyDown]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div
-        className="bg-slate-50 rounded-xl shadow-2xl w-[85vw] h-[80vh] flex flex-col overflow-hidden"
+        className="bg-slate-50 rounded-xl shadow-2xl w-[85vw] h-[80vh] flex flex-col overflow-hidden border border-slate-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-3 bg-slate-900 rounded-t-xl shrink-0">
+        <div className="flex items-center justify-between px-6 py-3 bg-slate-800 border-b border-slate-200 rounded-t-xl shrink-0">
           <div className="flex items-center gap-3">
             <h2 className="text-sm font-semibold text-white">{data?.title ?? "Dashboard"}</h2>
-            <span className="text-[10px] text-red-400 font-medium">CONFIDENTIAL</span>
+            <span className="text-[10px] text-rose-400 font-semibold tracking-wider">CONFIDENTIAL</span>
           </div>
           <div className="flex items-center gap-2">
             <a
               href={`/dashboard/${runId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-slate-400 hover:text-white transition-colors"
+              className="text-xs text-blue-600 hover:text-cyan-300 transition-colors"
             >
               Open full page
             </a>
@@ -69,11 +69,11 @@ export default function DashboardModal({ runId, onClose }: DashboardModalProps) 
         {/* Content — scrollable */}
         <div className="flex-1 overflow-y-auto p-6">
           {loading ? (
-            <div className="text-center py-12 text-slate-400">Loading dashboard...</div>
+            <div className="text-center py-12 text-slate-500">Loading dashboard...</div>
           ) : data ? (
             <DashboardContent data={data} runId={runId} />
           ) : (
-            <div className="text-center py-12 text-slate-400">Dashboard data not available</div>
+            <div className="text-center py-12 text-slate-500">Dashboard data not available</div>
           )}
         </div>
       </div>
