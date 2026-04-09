@@ -47,14 +47,16 @@ export class BlobArtifactStore implements ArtifactStore {
     try {
       for await (const blob of this.container.listBlobsFlat({ prefix: `${runId}/` })) {
         const filename = blob.name.split("/").pop() ?? blob.name;
-        if (!filename.endsWith(".html") && !filename.endsWith(".md")) continue;
+        if (!filename.endsWith(".html") && !filename.endsWith(".md") && !filename.endsWith(".pdf") && !filename.endsWith(".pptx") && !filename.endsWith(".json") && !filename.endsWith(".xlsx")) continue;
         const type = filename.includes("memo")
           ? ("memo" as const)
           : filename.includes("deck")
             ? ("deck" as const)
             : filename.includes("dashboard")
               ? ("dashboard" as const)
-              : ("other" as const);
+              : filename.includes("model")
+                ? ("model" as const)
+                : ("other" as const);
         artifacts.push({
           filename,
           type,

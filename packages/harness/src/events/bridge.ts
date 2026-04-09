@@ -81,6 +81,7 @@ function summarizeToolStart(toolName: string, data: Record<string, unknown>): st
   if (toolName === "artifacts-generate_memo_pdf") return "Generating memo PDF";
   if (toolName === "artifacts-generate_deck") return "Generating summary presentation deck";
   if (toolName === "artifacts-generate_dashboard") return "Generating interactive dashboard";
+  if (toolName === "artifacts-generate_model") return "Generating financial model";
   if (toolName === "artifacts-list_artifacts") return "Listing generated artifacts";
 
   // Default: show tool name with truncated args
@@ -139,6 +140,7 @@ function summarizeToolComplete(toolName: string, data: Record<string, unknown>):
   if (toolName === "artifacts-generate_memo_pdf") return "Generated memo PDF";
   if (toolName === "artifacts-generate_deck") return "Generated summary deck";
   if (toolName === "artifacts-generate_dashboard") return "Generated interactive dashboard";
+  if (toolName === "artifacts-generate_model") return "Generated financial model";
   if (toolName === "artifacts-list_artifacts") {
     const items = Array.isArray(parsed) ? parsed : (parsed.artifacts as unknown[]) ?? [];
     return `Listed ${items.length || "several"} artifacts`;
@@ -274,7 +276,7 @@ export function createEventBridge(
       if (toolName.includes("create_issue")) eventType = "issue.created";
       else if (toolName.includes("write_section")) eventType = "memo.updated";
       else if (toolName.includes("draft_seller_question")) eventType = "approval.requested";
-      else if (toolName.includes("generate_memo_pdf") || toolName.includes("generate_deck") || toolName.includes("generate_dashboard")) eventType = "artifact.generated";
+      else if (toolName.includes("generate_memo_pdf") || toolName.includes("generate_deck") || toolName.includes("generate_dashboard") || toolName.includes("generate_model")) eventType = "artifact.generated";
     }
 
     const harnessEvent: HarnessEvent = {

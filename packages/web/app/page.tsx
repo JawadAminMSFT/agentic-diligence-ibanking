@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { startRun, startReplay, listSessions, fetchDeals, approveAction, type Session, type RunEvent, type DealInfo } from "@/lib/api-client";
+import DocumentBrowser from "@/components/DocumentBrowser";
 import { useEventStream } from "@/hooks/useEventStream";
 import { useRunState } from "@/hooks/useRunState";
 import Sidebar from "@/components/Sidebar";
@@ -9,6 +10,7 @@ import RunTimeline from "@/components/RunTimeline";
 import IntelPanel from "@/components/IntelPanel";
 import ArtifactViewer from "@/components/ArtifactViewer";
 import DashboardModal from "@/components/DashboardModal";
+import ModelComparisonModal from "@/components/ModelComparisonModal";
 
 export default function App() {
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
@@ -17,6 +19,7 @@ export default function App() {
   const [intelOpen, setIntelOpen] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dashboardRunId, setDashboardRunId] = useState<string | null>(null);
+  const [comparisonRunId, setComparisonRunId] = useState<string | null>(null);
 
   // Sync activeRunId with URL hash
   useEffect(() => {
@@ -103,10 +106,14 @@ export default function App() {
         onSelectSession={handleSelectSession}
         onBack={handleBackToDashboard}
         onOpenDashboard={setDashboardRunId}
+        onOpenComparison={setComparisonRunId}
         error={error}
       />
       {dashboardRunId && (
         <DashboardModal runId={dashboardRunId} onClose={() => setDashboardRunId(null)} />
+      )}
+      {comparisonRunId && (
+        <ModelComparisonModal runId={comparisonRunId} onClose={() => setComparisonRunId(null)} />
       )}
     </div>
   );
@@ -161,6 +168,7 @@ function LandingPage({
   onReplay,
   onSelectSession,
   onOpenDashboard,
+  onOpenComparison,
   error,
 }: {
   sessions: Session[];
@@ -169,11 +177,13 @@ function LandingPage({
   onReplay: () => void;
   onSelectSession: (runId: string) => void;
   onOpenDashboard: (runId: string) => void;
+  onOpenComparison: (runId: string) => void;
   error: string | null;
 }) {
   const [prompt, setPrompt] = useState("");
   const [isStarting, setIsStarting] = useState(false);
   const [viewingArtifacts, setViewingArtifacts] = useState<string | null>(null);
+  const [viewingDocuments, setViewingDocuments] = useState<{dealId: string, dealName: string} | null>(null);
 
   async function handleSubmit() {
     if (!prompt.trim()) return;
@@ -260,19 +270,26 @@ function LandingPage({
                         <span className="block text-xs text-slate-400 mt-0.5">{deal.description}</span>
                       </td>
                       <td className="px-5 py-3.5">
-                        <span className={`inline-flex text-xs font-medium px-2.5 py-0.5 rounded-full ${badgeColor}`}>
+                        <span className={`inline-flex text-xs font-medium px-2.5 py-0.5 rounded-full whitespace-nowrap ${badgeColor}`}>
                           {deal.sector}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 text-sm font-medium text-slate-900">{deal.targetARR}</td>
-                      <td className="px-5 py-3.5 text-sm font-medium text-slate-900">{deal.targetGrowth}</td>
-                      <td className="px-5 py-3.5 text-sm text-slate-600">{deal.keyMetric}</td>
+                      <td className="px-5 py-3.5 text-sm font-medium text-slate-900 whitespace-nowrap">{deal.targetARR}</td>
+                      <td className="px-5 py-3.5 text-sm font-medium text-slate-900 whitespace-nowrap">{deal.targetGrowth}</td>
+                      <td className="px-5 py-3.5 text-sm text-slate-600 whitespace-nowrap">{deal.keyMetric}</td>
                       <td className="px-5 py-3.5">
-                        <span className="inline-flex text-xs font-medium px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700">
+                        <span className="inline-flex text-xs font-medium px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 whitespace-nowrap">
                           Initial Review
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 text-right">
+                      <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => setViewingDocuments({ dealId: deal.dealId, dealName: deal.codeName })}
+                          className="border border-slate-200 hover:border-slate-300 text-slate-600 hover:text-slate-800 text-xs px-3 py-1.5 rounded-md font-medium transition-colors cursor-pointer"
+                        >
+                          Documents
+                        </button>
                         <button
                           onClick={() => handleDealStart(deal)}
                           disabled={isStarting}
@@ -280,6 +297,7 @@ function LandingPage({
                         >
                           Run Diligence
                         </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -432,6 +450,16 @@ function LandingPage({
           dealName={sessions.find((s) => s.runId === viewingArtifacts)?.dealName ?? viewingArtifacts}
           onClose={() => setViewingArtifacts(null)}
           onOpenDashboard={onOpenDashboard}
+          onOpenComparison={onOpenComparison}
+        />
+      )}
+
+      {/* Document browser modal */}
+      {viewingDocuments && (
+        <DocumentBrowser
+          dealId={viewingDocuments.dealId}
+          dealName={viewingDocuments.dealName}
+          onClose={() => setViewingDocuments(null)}
         />
       )}
     </div>
@@ -449,6 +477,7 @@ function MainContent({
   onSelectSession,
   onBack,
   onOpenDashboard,
+  onOpenComparison,
   error,
 }: {
   activeRunId: string | null;
@@ -461,6 +490,7 @@ function MainContent({
   onSelectSession: (runId: string) => void;
   onBack: () => void;
   onOpenDashboard: (runId: string) => void;
+  onOpenComparison: (runId: string) => void;
   error: string | null;
 }) {
   if (!activeRunId) {
@@ -472,12 +502,13 @@ function MainContent({
         onReplay={onReplay}
         onSelectSession={onSelectSession}
         onOpenDashboard={onOpenDashboard}
+        onOpenComparison={onOpenComparison}
         error={error}
       />
     );
   }
 
-  return <ActiveRunView key={activeRunId} runId={activeRunId} intelOpen={intelOpen} onToggleIntel={onToggleIntel} onBack={onBack} onOpenDashboard={onOpenDashboard} />;
+  return <ActiveRunView key={activeRunId} runId={activeRunId} intelOpen={intelOpen} onToggleIntel={onToggleIntel} onBack={onBack} onOpenDashboard={onOpenDashboard} onOpenComparison={onOpenComparison} />;
 }
 
 function ActiveRunView({
@@ -486,12 +517,14 @@ function ActiveRunView({
   onToggleIntel,
   onBack,
   onOpenDashboard,
+  onOpenComparison,
 }: {
   runId: string;
   intelOpen: boolean;
   onToggleIntel: () => void;
   onBack: () => void;
   onOpenDashboard: (runId: string) => void;
+  onOpenComparison: (runId: string) => void;
 }) {
   const { run, memo, issues, evidence, events, isConnected, isLoading } = useRunState(runId);
   const [resolvedApprovals, setResolvedApprovals] = useState<Set<string>>(new Set());
@@ -565,6 +598,7 @@ function ActiveRunView({
           toolCallCount={toolCallCount}
           dealName={run.dealName}
           onOpenDashboard={onOpenDashboard}
+          onOpenComparison={onOpenComparison}
         />
       )}
       {!intelOpen && (

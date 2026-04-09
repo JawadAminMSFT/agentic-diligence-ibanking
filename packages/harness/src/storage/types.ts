@@ -10,7 +10,7 @@
 
 export interface ArtifactMetadata {
   filename: string;
-  type: "memo" | "deck" | "dashboard" | "other";
+  type: "memo" | "deck" | "dashboard" | "model" | "other";
   format: string;
   size: number;
   createdAt: string;

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import PptxGenJS from "pptxgenjs";
 import PDFDocument from "pdfkit";
+import ExcelJS from "exceljs";
 import fs from "node:fs";
 import path from "node:path";
 import { createMcpServer, startStdioServer } from "../shared/mcp-helpers.js";
@@ -843,8 +844,15 @@ server.tool(
       }),
     ),
     concentrationData: z.record(z.string(), z.number()),
+    modelComparison: z.array(z.object({
+      metric: z.string(),
+      managementClaim: z.string(),
+      verifiedValue: z.string(),
+      delta: z.string(),
+      status: z.string(),
+    })).optional(),
   },
-  async ({ title, kpis, revenueBreakdown, issuesSummary, concentrationData }) => {
+  async ({ title, kpis, revenueBreakdown, issuesSummary, concentrationData, modelComparison }) => {
     const dashboardData = {
       title,
       generatedAt: new Date().toISOString(),
@@ -852,6 +860,7 @@ server.tool(
       revenueBreakdown,
       issuesSummary,
       concentrationData,
+      ...(modelComparison ? { modelComparison } : {}),
     };
 
     const json = JSON.stringify(dashboardData, null, 2);
@@ -869,13 +878,240 @@ server.tool(
 );
 
 // ---------------------------------------------------------------------------
-// Tool 4: list_artifacts
+// Tool 5: generate_model (.xlsx via exceljs)
+// ---------------------------------------------------------------------------
+
+const HEADER_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1e293b" } };
+const HEADER_FONT: Partial<ExcelJS.Font> = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
+const ALT_ROW_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF8FAFC" } };
+const BORDER: Partial<ExcelJS.Borders> = {
+  top: { style: "thin", color: { argb: "FFE2E8F0" } },
+  bottom: { style: "thin", color: { argb: "FFE2E8F0" } },
+  left: { style: "thin", color: { argb: "FFE2E8F0" } },
+  right: { style: "thin", color: { argb: "FFE2E8F0" } },
+};
+
+const STATUS_FILLS: Record<string, ExcelJS.Fill> = {
+  confirmed: { type: "pattern", pattern: "solid", fgColor: { argb: "FFdcfce7" } },
+  discrepancy: { type: "pattern", pattern: "solid", fgColor: { argb: "FFfecaca" } },
+  partial: { type: "pattern", pattern: "solid", fgColor: { argb: "FFfef3c7" } },
+  unverified: { type: "pattern", pattern: "solid", fgColor: { argb: "FFf1f5f9" } },
+};
+
+function applyHeaderRow(row: ExcelJS.Row) {
+  row.eachCell((cell) => {
+    cell.fill = HEADER_FILL;
+    cell.font = HEADER_FONT;
+    cell.border = BORDER;
+  });
+}
+
+function applyDataRow(row: ExcelJS.Row, index: number) {
+  row.eachCell((cell) => {
+    if (index % 2 === 1) cell.fill = ALT_ROW_FILL;
+    cell.border = BORDER;
+  });
+}
+
+server.tool(
+  "generate_model",
+  {
+    title: z.string(),
+    assumptions: z.array(z.object({
+      metric: z.string(),
+      managementClaim: z.string(),
+      verifiedValue: z.string(),
+      delta: z.string(),
+      status: z.string(),
+    })),
+    revenueModel: z.object({
+      periods: z.array(z.string()),
+      revenue: z.array(z.number()),
+      growthRate: z.array(z.number()),
+      costOfRevenue: z.array(z.number()),
+      grossProfit: z.array(z.number()),
+      grossMargin: z.array(z.number()),
+    }),
+    scenarios: z.array(z.object({
+      name: z.string(),
+      description: z.string(),
+      keyAssumptions: z.string(),
+      projectedRevenue: z.string(),
+      projectedMargin: z.string(),
+      impliedValuation: z.string(),
+    })),
+    issues: z.array(z.object({
+      title: z.string(),
+      financialImpact: z.string(),
+      adjustment: z.string(),
+    })),
+  },
+  async ({ title, assumptions, revenueModel, scenarios, issues }) => {
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = "Diligence Agent";
+    workbook.created = new Date();
+
+    // ---- Sheet 1: Summary ----
+    const summarySheet = workbook.addWorksheet("Summary");
+    summarySheet.mergeCells("A1:D1");
+    const titleCell = summarySheet.getCell("A1");
+    titleCell.value = title;
+    titleCell.font = { bold: true, size: 18, color: { argb: "FF1e293b" } };
+    titleCell.alignment = { vertical: "middle" };
+    summarySheet.getRow(1).height = 36;
+
+    summarySheet.getCell("A3").value = "Date:";
+    summarySheet.getCell("B3").value = new Date().toISOString().split("T")[0];
+    summarySheet.getCell("A4").value = "Deal:";
+    summarySheet.getCell("B4").value = title;
+    summarySheet.getCell("A5").value = "CONFIDENTIAL";
+    summarySheet.getCell("A5").font = { bold: true, color: { argb: "FFDC2626" } };
+
+    summarySheet.getRow(7).values = ["Metric", "Value", "Source", "Status"];
+    applyHeaderRow(summarySheet.getRow(7));
+    assumptions.forEach((a, i) => {
+      const row = summarySheet.getRow(8 + i);
+      row.values = [a.metric, a.verifiedValue, a.managementClaim, a.status];
+      applyDataRow(row, i);
+      const statusCell = row.getCell(4);
+      if (STATUS_FILLS[a.status]) statusCell.fill = STATUS_FILLS[a.status];
+    });
+
+    summarySheet.columns = [
+      { key: "A", width: 30 },
+      { key: "B", width: 25 },
+      { key: "C", width: 25 },
+      { key: "D", width: 18 },
+    ];
+
+    // ---- Sheet 2: Revenue Model ----
+    const revenueSheet = workbook.addWorksheet("Revenue Model");
+    const periodHeaders = ["Metric", ...revenueModel.periods];
+    revenueSheet.getRow(1).values = periodHeaders;
+    applyHeaderRow(revenueSheet.getRow(1));
+    revenueSheet.views = [{ state: "frozen" as const, ySplit: 1, xSplit: 1 }];
+
+    const revenueRows: { label: string; data: number[]; fmt: string }[] = [
+      { label: "Revenue", data: revenueModel.revenue, fmt: "$#,##0" },
+      { label: "Growth Rate", data: revenueModel.growthRate, fmt: "0.0%" },
+      { label: "Cost of Revenue", data: revenueModel.costOfRevenue, fmt: "$#,##0" },
+      { label: "Gross Profit", data: revenueModel.grossProfit, fmt: "$#,##0" },
+      { label: "Gross Margin", data: revenueModel.grossMargin, fmt: "0.0%" },
+    ];
+
+    revenueRows.forEach((item, i) => {
+      const row = revenueSheet.getRow(2 + i);
+      row.values = [item.label, ...item.data];
+      applyDataRow(row, i);
+      for (let c = 2; c <= 1 + item.data.length; c++) {
+        row.getCell(c).numFmt = item.fmt;
+      }
+    });
+
+    revenueSheet.columns = [
+      { key: "A", width: 20 },
+      ...revenueModel.periods.map(() => ({ width: 16 })),
+    ];
+
+    // ---- Sheet 3: Assumptions & Verification ----
+    const assumptionsSheet = workbook.addWorksheet("Assumptions & Verification");
+    assumptionsSheet.columns = [
+      { header: "Metric", key: "metric", width: 30 },
+      { header: "Management Claim", key: "managementClaim", width: 28 },
+      { header: "Verified Value", key: "verifiedValue", width: 28 },
+      { header: "Delta", key: "delta", width: 20 },
+      { header: "Status", key: "status", width: 18 },
+    ];
+    applyHeaderRow(assumptionsSheet.getRow(1));
+    assumptionsSheet.autoFilter = { from: "A1", to: "E1" };
+    assumptionsSheet.views = [{ state: "frozen" as const, ySplit: 1 }];
+
+    assumptions.forEach((a, i) => {
+      const row = assumptionsSheet.addRow(a);
+      applyDataRow(row, i);
+      const statusCell = row.getCell(5);
+      if (STATUS_FILLS[a.status]) statusCell.fill = STATUS_FILLS[a.status];
+    });
+
+    // ---- Sheet 4: Scenario Analysis ----
+    const scenarioSheet = workbook.addWorksheet("Scenario Analysis");
+    scenarioSheet.columns = [
+      { header: "Scenario", key: "name", width: 14 },
+      { header: "Description", key: "description", width: 32 },
+      { header: "Key Assumptions", key: "keyAssumptions", width: 32 },
+      { header: "Projected Revenue", key: "projectedRevenue", width: 22 },
+      { header: "Projected Margin", key: "projectedMargin", width: 20 },
+      { header: "Implied Valuation", key: "impliedValuation", width: 22 },
+    ];
+    applyHeaderRow(scenarioSheet.getRow(1));
+    scenarioSheet.views = [{ state: "frozen" as const, ySplit: 1 }];
+
+    const scenarioFills: Record<string, ExcelJS.Fill> = {
+      Bull: { type: "pattern", pattern: "solid", fgColor: { argb: "FFdcfce7" } },
+      Bear: { type: "pattern", pattern: "solid", fgColor: { argb: "FFfecaca" } },
+    };
+
+    scenarios.forEach((s) => {
+      const row = scenarioSheet.addRow(s);
+      const fill = scenarioFills[s.name];
+      if (fill) {
+        row.eachCell((cell) => { cell.fill = fill; cell.border = BORDER; });
+      } else {
+        row.eachCell((cell) => { cell.border = BORDER; });
+      }
+    });
+
+    // ---- Sheet 5: Issues & Adjustments ----
+    const issuesSheet = workbook.addWorksheet("Issues & Adjustments");
+    issuesSheet.columns = [
+      { header: "Issue", key: "title", width: 36 },
+      { header: "Financial Impact", key: "financialImpact", width: 30 },
+      { header: "Recommended Adjustment", key: "adjustment", width: 36 },
+    ];
+    applyHeaderRow(issuesSheet.getRow(1));
+    issuesSheet.views = [{ state: "frozen" as const, ySplit: 1 }];
+
+    const RED_LEFT_BORDER: Partial<ExcelJS.Borders> = {
+      ...BORDER,
+      left: { style: "medium", color: { argb: "FFDC2626" } },
+    };
+
+    issues.forEach((issue, i) => {
+      const row = issuesSheet.addRow(issue);
+      applyDataRow(row, i);
+      row.getCell(1).border = RED_LEFT_BORDER;
+    });
+
+    // ---- Write file ----
+    ensureDir();
+    const filePath = path.join(ARTIFACTS_DIR, "model.xlsx");
+    await workbook.xlsx.writeFile(filePath);
+    const stats = fs.statSync(filePath);
+
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({
+          artifactId: "model",
+          filename: "model.xlsx",
+          type: "model",
+          format: "xlsx",
+          size: stats.size,
+          message: `Financial model generated (${stats.size} bytes)`,
+        }),
+      }],
+    };
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Tool 6: list_artifacts
 // ---------------------------------------------------------------------------
 server.tool("list_artifacts", {}, async () => {
   ensureDir();
   try {
     const files = fs.readdirSync(ARTIFACTS_DIR)
-      .filter(f => f.endsWith(".html") || f.endsWith(".md") || f.endsWith(".pptx") || f.endsWith(".pdf") || f.endsWith(".json"));
+      .filter(f => f.endsWith(".html") || f.endsWith(".md") || f.endsWith(".pptx") || f.endsWith(".pdf") || f.endsWith(".json") || f.endsWith(".xlsx"));
     const artifacts = files.map(filename => {
       const filePath = path.join(ARTIFACTS_DIR, filename);
       const stats = fs.statSync(filePath);

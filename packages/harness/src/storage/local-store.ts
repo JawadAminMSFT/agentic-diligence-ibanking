@@ -34,7 +34,7 @@ export class LocalArtifactStore implements ArtifactStore {
       if (!fs.existsSync(dir)) return [];
       return fs
         .readdirSync(dir)
-        .filter((f) => f.endsWith(".html") || f.endsWith(".md") || f.endsWith(".pdf") || f.endsWith(".pptx") || f.endsWith(".json"))
+        .filter((f) => f.endsWith(".html") || f.endsWith(".md") || f.endsWith(".pdf") || f.endsWith(".pptx") || f.endsWith(".json") || f.endsWith(".xlsx"))
         .map((filename) => {
           const filePath = path.join(dir, filename);
           const stats = fs.statSync(filePath);
@@ -44,7 +44,9 @@ export class LocalArtifactStore implements ArtifactStore {
               ? ("deck" as const)
               : filename.includes("dashboard")
                 ? ("dashboard" as const)
-                : ("other" as const);
+                : filename.includes("model")
+                  ? ("model" as const)
+                  : ("other" as const);
           return {
             filename,
             type,

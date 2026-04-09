@@ -41,6 +41,19 @@ const ARTIFACT_META: Record<string, { label: string; description?: string; color
       </svg>
     ),
   },
+  model: {
+    label: "Financial Model (Excel)",
+    colorClass: "text-emerald-600 bg-emerald-50 border-emerald-200",
+    icon: (
+      <svg className="w-6 h-6 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M3 9h18" />
+        <path d="M3 15h18" />
+        <path d="M9 3v18" />
+        <path d="M15 3v18" />
+      </svg>
+    ),
+  },
 };
 
 function getArtifactMeta(type: string) {
@@ -79,9 +92,10 @@ interface Props {
   dealName: string;
   onClose: () => void;
   onOpenDashboard?: (runId: string) => void;
+  onOpenComparison?: (runId: string) => void;
 }
 
-export default function ArtifactViewer({ runId, dealName, onClose, onOpenDashboard }: Props) {
+export default function ArtifactViewer({ runId, dealName, onClose, onOpenDashboard, onOpenComparison }: Props) {
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewing, setPreviewing] = useState<string | null>(null);
@@ -139,14 +153,16 @@ export default function ArtifactViewer({ runId, dealName, onClose, onOpenDashboa
               </svg>
             </div>
           ) : previewing ? (
-            previewing.endsWith(".pptx") ? (
+            previewing.endsWith(".pptx") || previewing.endsWith(".xlsx") ? (
               <div className="flex flex-col items-center justify-center h-full gap-4">
                 <svg className="w-12 h-12 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="2" y="3" width="20" height="14" rx="2" />
                   <path d="M8 21h8" />
                   <path d="M12 17v4" />
                 </svg>
-                <p className="text-sm text-slate-500">Download to view in PowerPoint</p>
+                <p className="text-sm text-slate-500">
+                  {previewing.endsWith(".xlsx") ? "Download to view in Excel" : "Download to view in PowerPoint"}
+                </p>
                 <a
                   href={getArtifactUrl(runId, previewing)}
                   download={previewing}
@@ -155,7 +171,7 @@ export default function ArtifactViewer({ runId, dealName, onClose, onOpenDashboa
                   <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M8 2v9M4 8l4 4 4-4M2 13h12" />
                   </svg>
-                  Download PPTX
+                  {previewing.endsWith(".xlsx") ? "Download XLSX" : "Download PPTX"}
                 </a>
               </div>
             ) : (
@@ -200,17 +216,27 @@ export default function ArtifactViewer({ runId, dealName, onClose, onOpenDashboa
                       </div>
                     </div>
                     <div className="flex items-center gap-2 mt-auto">
-                      {artifact.filename.endsWith(".pptx") ? (
-                        <a
-                          href={getArtifactUrl(runId, artifact.filename)}
-                          download={artifact.filename}
-                          className="bg-slate-800 hover:bg-slate-900 text-white text-xs px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 font-medium transition-colors"
-                        >
-                          <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M6 1v7M3 6l3 3 3-3M1 10h10" />
-                          </svg>
-                          Download
-                        </a>
+                      {artifact.filename.endsWith(".pptx") || artifact.filename.endsWith(".xlsx") ? (
+                        <>
+                          <a
+                            href={getArtifactUrl(runId, artifact.filename)}
+                            download={artifact.filename}
+                            className="bg-slate-800 hover:bg-slate-900 text-white text-xs px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 font-medium transition-colors"
+                          >
+                            <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M6 1v7M3 6l3 3 3-3M1 10h10" />
+                            </svg>
+                            Download
+                          </a>
+                          {artifact.type === "model" && onOpenComparison && (
+                            <button
+                              onClick={() => { onClose(); onOpenComparison(runId); }}
+                              className="border border-emerald-200 hover:border-emerald-300 text-emerald-600 hover:text-emerald-700 text-xs px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 font-medium transition-colors"
+                            >
+                              View Comparison
+                            </button>
+                          )}
+                        </>
                       ) : artifact.type === "dashboard" ? (
                         <button
                           onClick={() => {
@@ -241,9 +267,9 @@ export default function ArtifactViewer({ runId, dealName, onClose, onOpenDashboa
                             href={getArtifactUrl(runId, artifact.filename)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="border border-slate-200 hover:border-slate-300 text-slate-600 hover:text-slate-900 text-xs px-3 py-1.5 rounded-md font-medium transition-colors"
+                            className="border border-slate-200 hover:border-slate-300 text-slate-600 hover:text-slate-900 text-xs px-3 py-1.5 rounded-md font-medium transition-colors whitespace-nowrap"
                           >
-                            Open in new tab
+                            New Tab
                           </a>
                         </>
                       )}
@@ -272,7 +298,7 @@ export default function ArtifactViewer({ runId, dealName, onClose, onOpenDashboa
 }
 
 /** Compact artifact card list for use inside the IntelPanel Artifacts tab. */
-export function ArtifactCards({ runId, onOpenDashboard }: { runId: string; onOpenDashboard?: (runId: string) => void }) {
+export function ArtifactCards({ runId, onOpenDashboard, onOpenComparison }: { runId: string; onOpenDashboard?: (runId: string) => void; onOpenComparison?: (runId: string) => void }) {
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -329,17 +355,27 @@ export function ArtifactCards({ runId, onOpenDashboard }: { runId: string; onOpe
                   Generated {relativeTime(artifact.createdAt)}
                 </p>
                 <div className="mt-2 flex items-center gap-2">
-                  {artifact.filename.endsWith(".pptx") ? (
-                    <a
-                      href={getArtifactUrl(runId, artifact.filename)}
-                      download={artifact.filename}
-                      className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs px-3 py-1.5 rounded-md font-medium transition-colors"
-                    >
-                      <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M6 1v7M3 6l3 3 3-3M1 10h10" />
-                      </svg>
-                      Download PPTX
-                    </a>
+                  {artifact.filename.endsWith(".pptx") || artifact.filename.endsWith(".xlsx") ? (
+                    <>
+                      <a
+                        href={getArtifactUrl(runId, artifact.filename)}
+                        download={artifact.filename}
+                        className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs px-3 py-1.5 rounded-md font-medium transition-colors"
+                      >
+                        <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M6 1v7M3 6l3 3 3-3M1 10h10" />
+                        </svg>
+                        {artifact.filename.endsWith(".xlsx") ? "Download XLSX" : "Download PPTX"}
+                      </a>
+                      {artifact.type === "model" && onOpenComparison && (
+                        <button
+                          onClick={() => onOpenComparison(runId)}
+                          className="inline-flex items-center gap-1 border border-emerald-200 hover:border-emerald-300 text-emerald-600 hover:text-emerald-700 text-xs px-3 py-1.5 rounded-md font-medium transition-colors"
+                        >
+                          View Comparison
+                        </button>
+                      )}
+                    </>
                   ) : artifact.type === "dashboard" ? (
                     <button
                       onClick={() => {

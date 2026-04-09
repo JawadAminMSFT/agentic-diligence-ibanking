@@ -201,6 +201,7 @@ interface Props {
   toolCallCount: number;
   dealName?: string;
   onOpenDashboard?: (runId: string) => void;
+  onOpenComparison?: (runId: string) => void;
 }
 
 export default function IntelPanel({
@@ -213,6 +214,7 @@ export default function IntelPanel({
   toolCallCount,
   dealName = "Due Diligence Report",
   onOpenDashboard,
+  onOpenComparison,
 }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("Memo");
 
@@ -278,7 +280,7 @@ export default function IntelPanel({
         {activeTab === "Trace" && <TraceTab events={events} />}
         {activeTab === "Skills" && <SkillsTab />}
         {activeTab === "Tools" && <ToolsTab />}
-        {activeTab === "Artifacts" && runId && <ArtifactCards runId={runId} onOpenDashboard={onOpenDashboard} />}
+        {activeTab === "Artifacts" && runId && <ArtifactCards runId={runId} onOpenDashboard={onOpenDashboard} onOpenComparison={onOpenComparison} />}
         {activeTab === "Artifacts" && !runId && (
           <div className="flex items-center justify-center py-12">
             <p className="text-xs text-slate-400">No run ID available</p>

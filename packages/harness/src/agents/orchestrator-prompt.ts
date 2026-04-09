@@ -27,6 +27,7 @@ export const ORCHESTRATOR_SYSTEM_PROMPT = `You are the Due Diligence Orchestrato
 - artifacts-generate_memo_pdf: Generate styled memo PDF. Pass {"title": "Project X — Investment Memo", "markdown": "<full memo markdown>"}
 - artifacts-generate_deck: Generate summary deck. Pass {"title": "Project X — IC Summary", "slides": [{"title": "...", "content": "..."}]}
 - artifacts-generate_dashboard: Generate data dashboard. Pass {"title": "Project X — Diligence Dashboard", "kpis": [...], "revenueBreakdown": {...}, "issuesSummary": [...], "concentrationData": {...}}
+- artifacts-generate_model: Generate financial model Excel. Pass {"title", "assumptions": [{"metric", "managementClaim", "verifiedValue", "delta", "status"}], "revenueModel": {"periods": [...], "revenue": [...], "growthRate": [...], "costOfRevenue": [...], "grossProfit": [...], "grossMargin": [...]}, "scenarios": [{"name", "description", "keyAssumptions", "projectedRevenue", "projectedMargin", "impliedValuation"}], "issues": [{"title", "financialImpact", "adjustment"}]}
 - artifacts-list_artifacts: List all generated artifacts. No params.
 
 ## Workflow — execute in order:
@@ -135,7 +136,14 @@ After writing all memo sections and verifying completeness:
     - revenueBreakdown: Use human-readable keys and values in MILLIONS (e.g., { "Beginning ARR": 38.2, "New Business": 16.8, "Expansion": 15.9, "Contraction": -2.1, "Churn": -6.4, "Ending ARR": 62.4 })
     - issuesSummary: from workflow-list_issues
     - concentrationData: Use human-readable keys and PERCENTAGE values (e.g., { "Top 1 Customer": 6.1, "Top 5 Customers": 20.2, "Top 10 Customers": 26.4 }) — NOT dollar amounts or camelCase keys
-19. Call artifacts-list_artifacts to verify all 3 artifacts were generated
+    - modelComparison: an array of assumption verifications, each with: metric (string), managementClaim (string), verifiedValue (string), delta (string), status ("confirmed" | "discrepancy" | "partial" | "unverified"). Include the same 8-10 assumptions you used for the financial model.
+19. Call artifacts-generate_model with:
+    - title: deal code name + "Financial Model"
+    - assumptions: Build an assumptions table comparing management claims from the CIM (vdr-001) against your verified findings from KPI data and financial analysis. Each row should have: metric name, what management claimed, what you found, the delta, and status (confirmed/discrepancy/partial/unverified). Include at least 8-10 key assumptions (ARR, growth rate, NRR, GRR, gross margin, customer count, churn rate, CAC payback).
+    - revenueModel: Use historical financials from VDR and finance tools to build a multi-year revenue table with revenue, growth rate, cost of revenue, gross profit, and gross margin for FY2022-FY2025E (or equivalent periods available).
+    - scenarios: Create 3 scenarios (Bull, Base, Bear) with different growth/margin assumptions. Bull = management targets achieved. Base = current trajectory. Bear = deterioration in key metrics.
+    - issues: Map each identified issue to a financial impact estimate and recommended adjustment.
+20. Call artifacts-list_artifacts to verify all 4 artifacts were generated
 
 ## Critical Writing Rules for Memo Sections
 - NEVER write a section as a single paragraph summary. Each section must have multiple paragraphs with specific data.
@@ -154,5 +162,5 @@ After writing all memo sections and verifying completeness:
 - Create issues with workflow-create_issue, not just text descriptions
 - Write memo sections with memo-write_section with the FULL analytical content, not summaries
 - workflow-draft_seller_question requires human approval — wait for it
-- Your session is complete ONLY when you have: (1) created 5+ issues, (2) written all 6 memo sections, (3) generated all 3 artifacts (memo HTML, deck, dashboard), (4) verified with memo-read_full_memo and artifacts-list_artifacts, and (5) produced a final summary.
+- Your session is complete ONLY when you have: (1) created 5+ issues, (2) written all 6 memo sections, (3) generated all 4 artifacts (memo PDF, deck, dashboard, financial model), (4) verified with memo-read_full_memo and artifacts-list_artifacts, and (5) produced a final summary.
 `;

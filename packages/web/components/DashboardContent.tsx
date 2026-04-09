@@ -18,6 +18,14 @@ export interface IssueSummary {
   workstream: string;
 }
 
+export interface ModelComparison {
+  metric: string;
+  managementClaim: string;
+  verifiedValue: string;
+  delta: string;
+  status: string; // "confirmed" | "discrepancy" | "partial" | "unverified"
+}
+
 export interface DashboardData {
   title: string;
   generatedAt: string;
@@ -25,6 +33,7 @@ export interface DashboardData {
   revenueBreakdown: Record<string, number>;
   issuesSummary: IssueSummary[];
   concentrationData: Record<string, number>;
+  modelComparison?: ModelComparison[];
 }
 
 type SortField = "index" | "title" | "severity" | "workstream";

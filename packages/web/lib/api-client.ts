@@ -131,7 +131,7 @@ export async function approveAction(
 
 export interface Artifact {
   filename: string;
-  type: "memo" | "deck" | "dashboard" | "other";
+  type: "memo" | "deck" | "dashboard" | "model" | "other";
   format: string;
   size: number;
   createdAt: string;
@@ -146,6 +146,20 @@ export async function fetchArtifacts(runId: string): Promise<Artifact[]> {
 
 export function getArtifactUrl(runId: string, filename: string): string {
   return `${API_BASE}/api/run/${runId}/artifacts/${filename}`;
+}
+
+export interface DealDocument {
+  documentId: string;
+  title: string;
+  category: string;
+  snippet: string;
+  uploadedAt: string;
+}
+
+export async function fetchDealDocuments(dealId: string): Promise<DealDocument[]> {
+  const res = await fetch(`${API_BASE}/api/deals/${dealId}/documents`);
+  if (!res.ok) return [];
+  return res.json();
 }
 
 export async function listSessions(): Promise<Session[]> {

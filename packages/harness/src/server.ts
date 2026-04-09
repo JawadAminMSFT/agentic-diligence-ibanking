@@ -13,7 +13,7 @@ import { WorkspaceStore } from "./state/store.js";
 import { TraceStore } from "./events/trace-store.js";
 import { createSessionStore, type SessionStore } from "./db/index.js";
 import { createArtifactStore, type ArtifactStore } from "./storage/index.js";
-import { AVAILABLE_DEALS } from "./deals.js";
+import { AVAILABLE_DEALS, DEAL_DOCUMENTS } from "./deals.js";
 import type { HarnessEvent } from "./events/types.js";
 import type { DealWorkspace } from "./state/types.js";
 import type { Response as ExpressResponse } from "express";
@@ -45,6 +45,16 @@ export function createServer(): Express {
   // GET /api/deals — List available deals
   app.get("/api/deals", (_req, res) => {
     res.json(AVAILABLE_DEALS);
+  });
+
+  // GET /api/deals/:dealId/documents — List VDR documents for a deal
+  app.get("/api/deals/:dealId/documents", (req, res) => {
+    const docs = DEAL_DOCUMENTS[req.params.dealId];
+    if (!docs) {
+      res.status(404).json({ error: "Deal not found" });
+      return;
+    }
+    res.json(docs);
   });
 
   // POST /api/run — Start a new diligence run
@@ -390,7 +400,7 @@ export function createServer(): Express {
   app.get("/api/run/:runId/artifacts/status", async (req, res) => {
     const artifacts = await artifactStore.list(req.params.runId);
     const count = artifacts.filter(a =>
-      a.format === "html" || a.format === "pdf" || a.format === "pptx" || a.format === "json"
+      a.format === "html" || a.format === "pdf" || a.format === "pptx" || a.format === "json" || a.format === "xlsx"
     ).length;
     res.json({ hasArtifacts: count > 0, count });
   });
@@ -416,6 +426,7 @@ export function createServer(): Express {
       pdf: "application/pdf",
       json: "application/json",
       pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     };
 
     // Serve directly from filesystem to handle binary files (pdf, pptx) correctly
