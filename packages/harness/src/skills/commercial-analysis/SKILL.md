@@ -1,6 +1,6 @@
 ---
 name: commercial-analysis
-description: Commercial due diligence analysis framework for buy-side M&A
+description: Commercial due diligence analysis framework for M&A
 ---
 
 # Commercial Due Diligence
@@ -46,3 +46,4 @@ Create a workflow-create_issue for:
 - Any material discrepancy between public claims and private data
 - Missing competitive win/loss data
 - Unvalidated TAM claims
+

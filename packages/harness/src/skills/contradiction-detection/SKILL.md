@@ -7,7 +7,7 @@ description: Patterns, detection methods, and escalation rules for contradiction
 
 ## What Is a Contradiction?
 
-A contradiction exists when two or more evidence items make claims that cannot both be true, or when a metric presented in one context is materially inconsistent with the same metric derived from underlying data. In buy-side diligence, contradictions are the single highest-signal indicator of risk — they reveal where management's narrative diverges from reality.
+A contradiction exists when two or more evidence items make claims that cannot both be true, or when a metric presented in one context is materially inconsistent with the same metric derived from underlying data. In due diligence diligence, contradictions are the single highest-signal indicator of risk — they reveal where management's narrative diverges from reality.
 
 ## Common Contradiction Patterns
 
@@ -83,3 +83,4 @@ When a contradiction is detected:
 3. Attempt resolution by seeking additional evidence from other sources
 4. If unresolvable with available data, escalate to `severity: high` and draft a seller question via workflow-draft_seller_question
 5. Never silently resolve — all resolutions must be documented with `resolvedBy` and the resolution rationale
+

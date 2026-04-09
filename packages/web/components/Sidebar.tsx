@@ -95,7 +95,7 @@ export default function Sidebar({
           </svg>
           {!collapsed && (
             <div>
-              <div className="text-sm font-semibold text-white tracking-tight leading-tight">Buy-side Diligence</div>
+              <div className="text-sm font-semibold text-white tracking-tight leading-tight">Due Diligence</div>
               <div className="text-[10px] text-slate-400 font-medium tracking-wide uppercase">Copilot Agent Harness</div>
             </div>
           )}

@@ -1,6 +1,6 @@
 ---
 name: legal-analysis
-description: Legal due diligence analysis framework for buy-side M&A
+description: Legal due diligence analysis framework for M&A
 ---
 
 # Legal Due Diligence
@@ -50,3 +50,4 @@ For each of the top 10 customers by ARR:
   - Missing IP assignment agreements
   - Unclear CoC terms in top contracts
   - Missing SOC 2 or compliance certifications
+

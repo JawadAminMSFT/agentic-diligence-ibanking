@@ -182,7 +182,7 @@ server.tool(
     const doc = new PDFDocument({
       size: "A4",
       margins: { top: 72, bottom: 72, left: 72, right: 72 },
-      info: { Title: title, Author: "Buy-side Diligence Copilot" },
+      info: { Title: title, Author: "Diligence Copilot" },
     });
 
     const chunks: Buffer[] = [];
@@ -234,7 +234,7 @@ server.tool(
       .fontSize(13)
       .font("Helvetica-Bold")
       .fillColor("#1e293b")
-      .text("Buy-side Diligence Copilot", { align: "center" });
+      .text("Diligence Copilot", { align: "center" });
     doc.moveDown(0.5);
 
     const formattedDate = new Date().toLocaleDateString("en-US", {
@@ -543,7 +543,7 @@ server.tool(
     pptx.defineLayout({ name: "CUSTOM_16x9", width: 10, height: 5.625 });
     pptx.layout = "CUSTOM_16x9";
     pptx.title = title;
-    pptx.author = "Buy-side Diligence Copilot";
+    pptx.author = "Diligence Copilot";
     pptx.company = "Diligence Agent Harness";
 
     const now = new Date().toLocaleDateString("en-US", {
@@ -577,7 +577,7 @@ server.tool(
       x: 0.8, y: 2.5, w: 8.4, h: 0.4,
       fontSize: 13, color: C.MUTED, fontFace: "Arial",
     });
-    titleSlide.addText(`Prepared by  Buy-side Diligence Copilot\n${now}`, {
+    titleSlide.addText(`Prepared by  Diligence Copilot\n${now}`, {
       x: 0.8, y: 3.2, w: 8.4, h: 0.6,
       fontSize: 9, color: C.LIGHT, fontFace: "Arial",
     });

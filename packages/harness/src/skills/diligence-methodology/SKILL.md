@@ -1,6 +1,6 @@
 ---
 name: diligence-methodology
-description: Buy-side M&A due diligence methodology and sequencing
+description: M&A due diligence methodology and sequencing
 ---
 
 # Diligence Methodology
@@ -24,3 +24,4 @@ description: Buy-side M&A due diligence methodology and sequencing
 - Provenance must be labeled: public_live (web sources) vs. synthetic_private (VDR/finance)
 - Confidence scoring: High (0.85+) = multiple corroborating sources; Medium (0.70-0.84) = single reliable source; Low (<0.70) = inferred or partial data
 - Contradictions between public and private sources are always flagged as issues
+

@@ -1,6 +1,6 @@
 ---
 name: financial-analysis
-description: Financial due diligence analysis framework for buy-side M&A
+description: Financial due diligence analysis framework for M&A
 ---
 
 # Financial Due Diligence
@@ -48,3 +48,4 @@ Create issues for:
 - S&M growing faster than revenue for 2+ years
 - Cash runway < 12 months without fundraising
 - Inconsistencies between CIM narrative and KPI workbook figures
+

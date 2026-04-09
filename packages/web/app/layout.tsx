@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Buy-side Diligence Copilot",
-  description: "Agentic buy-side due diligence platform",
+  title: "Diligence Copilot",
+  description: "Agentic due diligence platform",
 };
 
 export default function RootLayout({
