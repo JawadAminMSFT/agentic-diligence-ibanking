@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.next/
+*.tsbuildinfo
+.turbo/
+
+# Environment
+.env
+.env.local
+
+# Research (not part of deliverable)
+diligence-copilot-sdk-showcase/
+
+# Generated artifacts (per-run outputs)
+artifacts/
+
+# Synthetic data package (separate from code)
+packages/data/
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+diligence-sessions.db*
+
+# Test/temp files
+e2e-runid.txt
+coverage/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Package manager locks (keep pnpm-lock.yaml, ignore npm)
+package-lock.json
