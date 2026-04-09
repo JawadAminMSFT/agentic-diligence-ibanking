@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-The Diligence Agentic Harness is an AI-powered platform that automates buy-side due diligence for mergers and acquisitions. It orchestrates specialist AI agents to gather public intelligence, analyze private data room documents, detect contradictions between management claims and actual data, surface risks, and draft investment committee deliverables — reducing first-pass diligence from weeks to minutes.
+The Diligence Agentic Harness is an AI-powered platform that automates due diligence for mergers and acquisitions. It orchestrates specialist AI agents to gather public intelligence, analyze private data room documents, detect contradictions between management claims and actual data, surface risks, and draft investment committee deliverables — reducing first-pass diligence from weeks to minutes.
 
 Built for **private equity firms**, **corporate development teams**, **investment banks**, and **M&A advisory practices**, the platform delivers consistent, evidence-backed analysis across every deal while keeping human analysts in control of sensitive decisions.
 
@@ -10,7 +10,7 @@ Built for **private equity firms**, **corporate development teams**, **investmen
 
 ## The Problem: Manual Due Diligence Is Broken
 
-Buy-side diligence today is a labor-intensive, error-prone process that has barely changed in two decades. The typical engagement involves:
+Due diligence today is a labor-intensive, error-prone process that has barely changed in two decades. The typical engagement involves:
 
 - **2-4 weeks of analyst time per deal**, with junior team members manually reviewing hundreds of documents — CIMs, virtual data room files, financial models, customer contracts, and legal agreements.
 - **Cross-referencing public claims against private data is tedious and inconsistent.** Management presentations often frame metrics favorably (e.g., describing customer concentration as "diversified" with "no single customer above 10%"), while the underlying data tells a different story (e.g., the Top 5 customers representing 29.6% of ARR).

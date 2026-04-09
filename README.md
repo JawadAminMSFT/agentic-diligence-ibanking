@@ -1,8 +1,8 @@
-# Agentic Diligence — AI-First Buy-Side M&A Due Diligence
+# Agentic Diligence — AI-First M&A Due Diligence
 
 ## Overview
 
-An AI-first buy-side due diligence platform that autonomously performs first-pass M&A analysis. Powered by the GitHub Copilot SDK, it orchestrates specialist tools across public research, private data rooms, financial analysis, and legal review — producing IC-quality deliverables in minutes.
+An AI-first due diligence platform that autonomously performs first-pass M&A analysis. Powered by the GitHub Copilot SDK, it orchestrates specialist tools across public research, private data rooms, financial analysis, and legal review — producing IC-quality deliverables in minutes.
 
 ## Key Features
 
