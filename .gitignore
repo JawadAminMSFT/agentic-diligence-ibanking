@@ -14,8 +14,8 @@ dist/
 # Research (not part of deliverable)
 diligence-copilot-sdk-showcase/
 
-# Generated artifacts (per-run outputs)
-artifacts/
+# Generated artifacts (per-run outputs at root level)
+/artifacts/
 
 # Synthetic data package (separate from code)
 packages/data/
