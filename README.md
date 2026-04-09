@@ -1,147 +1,136 @@
-# Diligence Agentic Harness
+# Agentic Diligence — AI-First Buy-Side M&A Due Diligence
 
-A production-grade agentic harness for M&A due diligence, powered by the [GitHub Copilot SDK](https://github.com/github/copilot-sdk). Orchestrates specialist AI agents to gather evidence, detect contradictions, draft investment memos, and enforce human approval gates — with full runtime observability.
+## Overview
+
+An AI-first buy-side due diligence platform that autonomously performs first-pass M&A analysis. Powered by the GitHub Copilot SDK, it orchestrates specialist tools across public research, private data rooms, financial analysis, and legal review — producing IC-quality deliverables in minutes.
+
+## Key Features
+
+- **Autonomous Diligence Agent** — Single orchestrator drives 5-phase analysis workflow using 17 MCP tools
+- **Multi-Deal Pipeline** — Run diligence on multiple targets simultaneously (Atlas, Titan, Meridian)
+- **IC-Quality Deliverables** — Generates investment memo (PDF), summary deck (PPTX), and interactive dashboard
+- **Real-Time Observability** — Watch every tool call, finding, and decision in a live event stream
+- **Evidence-Based Analysis** — Every claim traces to a source with provenance labels and confidence scores
+- **Contradiction Detection** — Automatically flags discrepancies between management claims and actual data
+- **Human-in-the-Loop** — Approval gates for sensitive actions (seller questions), steering for mid-run guidance
+- **Session Persistence** — SQLite locally, pluggable for Azure SQL in production
+- **Artifact Storage** — Local filesystem or Azure Blob Storage
 
 ## Architecture
 
 ```
-packages/
-├── harness/        # Core agentic runtime (Copilot SDK, hooks, agents, API server)
-├── mcp-servers/    # 5 local MCP servers (web-research, VDR, finance, workflow, memo)
-├── web/            # Next.js 15 operator UI (event streaming, trace inspector, approval flow)
-└── data/           # Synthetic deal corpus for "Project Atlas"
+┌─────────────────────────────────────────────────────────┐
+│              Next.js Frontend (:3001)                    │
+│  Pipeline │ Timeline │ Intel Panel │ Dashboard Modal     │
+├─────────────────────────────────────────────────────────┤
+│              Express API Server (:3000)                  │
+│   /run │ /events (SSE) │ /artifacts │ /steer │ /deals   │
+├─────────────────────────────────────────────────────────┤
+│          GitHub Copilot SDK (Agent Loop)                 │
+│   Orchestrator │ Hooks │ Skills │ Event Bridge           │
+├──────┬──────┬──────┬──────┬──────┬──────────────────────┤
+│ Web  │ VDR  │ Fin  │ Work │ Memo │ Artifacts            │
+│ Rsrch│      │ ance │ flow │      │                      │
+│ MCP  │ MCP  │ MCP  │ MCP  │ MCP  │ MCP                  │
+└──────┴──────┴──────┴──────┴──────┴──────────────────────┘
 ```
 
-## Copilot SDK Features Used
+## Tech Stack
 
-| Feature | Usage |
-|---------|-------|
-| **Agent Loop** | Multi-turn tool-use orchestration with `session.idle` completion signals |
-| **Custom Agents** | 4 specialist sub-agents (commercial, financial, legal, synthesis) with scoped tools |
-| **Hooks** | Approval gates (`onPreToolUse`), provenance tagging (`onPostToolUse`), lifecycle management |
-| **MCP Servers** | 5 local stdio servers providing domain-specific tools |
-| **Skills** | SKILL.md prompt modules for diligence methodology, memo format, evidence rules |
-| **Streaming Events** | Real-time event bridge to Next.js frontend via SSE |
-| **Steering & Queueing** | Operator can redirect mid-run or queue follow-up tasks |
-| **Session Persistence** | Resumable sessions with structured IDs |
-
-## Prerequisites
-
-- **Node.js** 18+
-- **pnpm** 9+
-- **GitHub Copilot CLI** installed and authenticated (`copilot --version`)
-- **Azure OpenAI** endpoint + API key
+| Component | Technology |
+|-----------|-----------|
+| Agent Runtime | GitHub Copilot SDK (`@github/copilot-sdk`) |
+| LLM | Azure AI Foundry (GPT-5.4-mini) |
+| MCP Servers | `@modelcontextprotocol/sdk` (6 stdio servers, 17 tools) |
+| Frontend | Next.js 16, React 19, Tailwind CSS |
+| API Server | Express with SSE streaming |
+| Artifact Gen | PDFKit (memo), PptxGenJS (deck), Next.js (dashboard) |
+| Session Store | SQLite (local) / Azure SQL (production) |
+| Artifact Store | Filesystem (local) / Azure Blob Storage (production) |
 
 ## Quick Start
 
-### 1. Install dependencies
+### Prerequisites
+
+- Node.js 18+ and pnpm 9+
+- GitHub Copilot CLI installed and authenticated
+- Azure AI Foundry endpoint (or compatible OpenAI API)
+
+### Setup
 
 ```bash
+# Clone the repo
+git clone https://github.com/jawadaminmsft/agentic-diligence-ibanking.git
+cd agentic-diligence-ibanking
+
+# Install dependencies
 pnpm install
-```
 
-### 2. Configure environment
-
-```bash
+# Configure environment
 cp .env.example .env
-# Edit .env with your Azure OpenAI credentials:
-#   AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
-#   AZURE_OPENAI_API_KEY=your-key
-#   AZURE_OPENAI_DEPLOYMENT=gpt-4o
+# Edit .env with your Azure AI Foundry endpoint and auth
+
+# Build all packages
+pnpm --filter mcp-servers build
+pnpm --filter harness build
+
+# Start the API server
+npx tsx packages/harness/src/serve.ts
+
+# In another terminal, start the frontend
+cd packages/web && npx next dev --port 3001
 ```
 
-### 3. Build all packages
+### Run Diligence
 
-```bash
-pnpm build
-```
+1. Open http://localhost:3001
+2. Select a deal from the pipeline (Atlas, Titan, or Meridian)
+3. Click "Run Diligence" — the agent starts autonomous analysis
+4. Watch real-time events in the timeline
+5. Review memo, issues, and evidence in the Intelligence panel
+6. View generated artifacts (PDF memo, PPTX deck, interactive dashboard)
 
-### 4. Run the harness (CLI mode)
+## Copilot SDK Features Used
 
-```bash
-pnpm dev:harness
-```
-
-### 5. Run the operator UI
-
-```bash
-pnpm dev:web
-```
-
-Then open [http://localhost:3001](http://localhost:3001).
+- **Agent Loop** — Multi-turn LLM ↔ tool call orchestration
+- **MCP Servers** — 6 domain-specific tool servers with 17 tools
+- **Skills** — 9 SKILL.md prompt modules for domain expertise injection
+- **Hooks** — Pre/post tool-use hooks for approval gates and provenance tagging
+- **Streaming Events** — Real-time event bridge from SDK to frontend via SSE
+- **Session Persistence** — Structured session IDs with SQLite/Azure SQL storage
+- **BYOK Provider** — Azure AI Foundry with Azure AD token authentication
 
 ## Project Structure
 
-### packages/harness
+```
+packages/
+├── harness/          # Core runtime — Copilot SDK integration
+│   ├── src/agents/   # Orchestrator prompt
+│   ├── src/hooks/    # Approval gate, provenance tagger, lifecycle
+│   ├── src/skills/   # 9 SKILL.md domain expertise modules
+│   ├── src/events/   # Event bridge, types, trace store
+│   ├── src/db/       # Session persistence (SQLite/Azure SQL)
+│   ├── src/storage/  # Artifact storage (local/Azure Blob)
+│   └── src/server.ts # Express API server
+├── mcp-servers/      # 6 MCP tool servers
+│   ├── src/web-research/  # Public source search
+│   ├── src/vdr/           # Virtual data room
+│   ├── src/finance/       # Financial analysis
+│   ├── src/workflow/      # Issue tracking
+│   ├── src/memo/          # Memo section management
+│   └── src/artifacts/     # PDF, PPTX, dashboard generation
+├── web/              # Next.js operator UI
+│   ├── app/          # Pages (landing, dashboard)
+│   ├── components/   # UI components
+│   └── hooks/        # Event stream, run state
+└── data/             # Synthetic deal corpus (not committed)
+```
 
-The core runtime that wires together all Copilot SDK features:
+## Documentation
 
-- **`src/client.ts`** — CopilotClient lifecycle with Azure OpenAI BYOK configuration
-- **`src/session-factory.ts`** — Central session creation with all SDK features wired (agents, hooks, MCP, skills)
-- **`src/hooks/`** — Approval gates, provenance tagging, lifecycle management, error handling
-- **`src/agents/`** — 4 specialist agent definitions + orchestrator system prompt
-- **`src/skills/`** — SKILL.md prompt modules for domain expertise
-- **`src/tools/`** — Tool registry with tier metadata (0=auto, 1=log, 2=approve)
-- **`src/state/`** — Domain types (Zod schemas) and in-memory workspace store
-- **`src/events/`** — SDK event → harness event bridge + trace persistence
-- **`src/server.ts`** — Express API server for the frontend
-
-### packages/mcp-servers
-
-5 local stdio MCP servers backed by synthetic data:
-
-| Server | Tools | Data Source |
-|--------|-------|-------------|
-| **web-research** | `search`, `open_page` | Public cache (investor relations, news, etc.) |
-| **vdr** | `search_documents`, `open_document` | Synthetic private-room documents (CIM, contracts, KPIs) |
-| **finance** | `load_kpis`, `compute_cohorts`, `revenue_bridge` | Financial metrics with segment breakdowns |
-| **workflow** | `create_issue`, `draft_seller_question`, `list_issues` | Issue tracking + approval workflow |
-| **memo** | `read_section`, `write_section`, `read_full_memo` | Investment memo management |
-
-### packages/web
-
-Next.js 15 operator UI with:
-
-- **Dashboard** — Start new runs, view active sessions
-- **Event Stream** — Real-time SSE event feed with filtering
-- **Trace Inspector** — Turn-by-turn agent trace with tool call details
-- **Memo Viewer** — Investment memo with evidence links and confidence scores
-- **Issue Board** — Severity-coded open issues by workstream
-- **Approval Drawer** — Approve/reject tier-2 actions (seller questions)
-- **Evidence Panel** — Evidence detail with provenance labels
-- **Session Controls** — Steer, queue, pause, resume
-
-### packages/data
-
-Synthetic deal corpus for "Project Atlas" (SaaS construction management company):
-
-- **canonical/** — Ground truth, hidden issues, expected claims, peer set
-- **artifacts/** — VDR document manifest
-- **public_cache/** — Cached public web sources
-- **interactions/** — Mocked communications
-
-## Deal Flow
-
-The harness simulates a realistic M&A diligence workflow:
-
-1. **Intake** — Operator starts a run with a diligence prompt
-2. **Planning** — Orchestrator creates an explicit plan with workstreams
-3. **Public Research** — Web-research agent gathers live public context
-4. **Private Room Review** — VDR agent inspects uploaded deal documents
-5. **Specialist Analysis** — Commercial, financial, and legal agents run in parallel
-6. **Contradiction Detection** — Synthesis agent reconciles public vs. private findings
-7. **Issue Surfacing** — Open issues are created with evidence links
-8. **Approval Gates** — Seller-facing questions require human approval
-9. **Memo Draft** — Investment memo sections are updated incrementally
-
-## Tool Approval Tiers
-
-| Tier | Behavior | Examples |
-|------|----------|---------|
-| **0** | Auto-approved | `search`, `open_page`, `load_kpis` |
-| **1** | Log and proceed | `create_issue`, `write_section` |
-| **2** | Require human approval | `draft_seller_question` |
+- [Business Use Cases](docs/BUSINESS.md) — Target users, workflow, value proposition
+- [Technical Architecture](docs/ARCHITECTURE.md) — System design, SDK integration, data flows
 
 ## License
 
-Private — internal use only.
+Internal use only.
