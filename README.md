@@ -133,4 +133,4 @@ packages/
 
 ## License
 
-Internal use only.
+This project is licensed under the [MIT License](LICENSE). This is a demonstration and reference implementation — not an official Microsoft product. See LICENSE for full terms.
